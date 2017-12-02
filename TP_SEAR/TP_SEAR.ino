@@ -57,8 +57,8 @@ const char keys[ROWS][COLS] = {
   {'1', '2', '3'},
 };
 
-byte colPins[COLS] = {38, 40, 42};
-byte rowPins[ROWS] = {36, 34, 32, 30};
+byte colPins[COLS] = {40, 42, 44};
+byte rowPins[ROWS] = {38, 36, 34, 32};
 
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
@@ -72,13 +72,13 @@ const char KEY_RIGHT = '4';
 // == LCD CONFIG
 // ==========================
 
-const int D4 = A7;
-const int D5 = A6;
-const int D6 = A5;
-const int D7 = A4;
+const int D4 = A5;
+const int D5 = A4;
+const int D6 = A3;
+const int D7 = A2;
 
-const int RS = A3;
-const int EN = A2;
+const int RS = A1;
+const int EN = A0;
 
 LiquidCrystal lcd(RS, EN, D4, D5, D6, D7);
 
@@ -92,7 +92,10 @@ LiquidCrystal lcd(RS, EN, D4, D5, D6, D7);
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xE1 };
 // if you don't want to use DNS (and reduce your sketch size)
 // use the numeric IP instead of the name for the server:
-IPAddress server(192, 168, 3, 98);  // numeric IP for Google (no DNS)
+
+byte SERVER[] = {192, 168, 3, 139};
+
+IPAddress server(SERVER[0], SERVER[1], SERVER[2], SERVER[3]);    // numeric IP for Google (no DNS)
 //char server[] = "www.google.com";    // name address for Google (using DNS)
 
 // Set the static IP address to use if the DHCP fails to assign
@@ -126,10 +129,16 @@ long time = 0;
 // ==========================
 
 void setup() {
-  setupMotor();
-  Serial.begin(9600);
+  setupSerial();
   setupLCD();
-  // setupEthernet();
+  setupMotor();
+  setupEthernet();
+}
+
+void setupSerial() {
+  Serial.begin(9600);
+  while (!Serial) {}
+  Serial.println("...Starting...");
 }
 
 void setupMotor() {
@@ -141,26 +150,21 @@ void setupMotor() {
   pinMode(w2, OUTPUT);
   pinMode(w3, OUTPUT);
   pinMode(w4, OUTPUT);
+  Serial.println("Motor Configured");
 }
 
 void setupLCD() {
+  Serial.println("Setup LCD");
   lcd.begin(16, 2);
   lcd.setCursor(0, 0);
   lcd.print("Hello Moto!");
+  Serial.println("LCD Started");
 }
 
 void setupEthernet() {
-  // Open serial communications and wait for port to open:
-  while (!Serial) {
-    // wait for serial port to connect. Needed for native USB port only
-  }
-  // start the Ethernet connection:
-  if (Ethernet.begin(mac) == 0) {
-    Serial.println("Failed to configure Ethernet using DHCP");
-    // try to congifure using IP address instead of DHCP:
-    Ethernet.begin(mac, ip);
-  }
-  // give the Ethernet shield a second to initialize:
+  Serial.println("Setup Ethernet");
+  Ethernet.begin(mac);
+  Serial.println(Ethernet.localIP());
   delay(1000);
   Serial.println("Ethernet started");
 }
@@ -172,11 +176,9 @@ void setupEthernet() {
 
 void loop() {
 
-  // make_request();
+  make_request();
 
   char key = keypad.getKey();
-
-  // String strCode = get_str_code_from(key);
 
   print_in_lcd(key);
 
@@ -200,16 +202,21 @@ char get_char_code_from(String response) {
 
 void print_in_lcd(char key) {
 
-  lcd_print_if(key, KEY_UP,    "Up");
-  lcd_print_if(key, KEY_DOWN,  "Down");
-  lcd_print_if(key, KEY_LEFT,  "Left");
-  lcd_print_if(key, KEY_RIGHT, "Right");
+  lcd_print_if(key, KEY_UP,    "UP");
+  lcd_print_if(key, KEY_DOWN,  "DOWN");
+  lcd_print_if(key, KEY_LEFT,  "LEFT");
+  lcd_print_if(key, KEY_RIGHT, "RIGHT");
 
   lcd.setCursor(8, 1);
   lcd.print(" X:");
   lcd.print(shaftPositionX);
   lcd.print(" Y:");
   lcd.print(shaftPositionY);
+
+  Serial.print(" X:");
+  Serial.print(shaftPositionX);
+  Serial.print(" Y:");
+  Serial.println(shaftPositionY);
 
 }
 
@@ -218,6 +225,7 @@ void lcd_print_if(char key, char expected, String message) {
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print(message);
+    Serial.println(message);
   }
 }
 
@@ -290,7 +298,10 @@ void make_request() {
         response += c;
       }
     }
-    move_from_server(get_char_code_from(response));
+
+    char key = get_char_code_from(response);
+
+    move_from_server(key);
     response = "";
     client.stop();
     nextIsResponse = false;
@@ -309,7 +320,7 @@ void make_request() {
       if (client.connect(server, PORT)) {
         Serial.println("Request starting");
         client.println("GET /hola HTTP/1.1");
-        client.println("Host: 192.168.3.98");
+        client.println("Host: " + String(SERVER[0])+ String(SERVER[1]) + String(SERVER[2]) + String(SERVER[3]));
         client.println("Connection:close");
         client.println();
 //        client.println("POST /hola HTTP/1.1");
