@@ -106,9 +106,6 @@ IPAddress ip(192, 168, 3, 108);
 // that you want to connect to (port 80 is default for HTTP):
 EthernetClient client;
 
-String response = "";
-boolean nextIsResponse = false;
-
 const int PORT = 3005;
 
 String RESPONSE_UP    = "@up";
@@ -182,9 +179,7 @@ void setupEthernet() {
 
 void loop() {
 
-  if (MODE == 0) {
-    MODE = print_set_mode();
-  }
+  if (MODE == 0) MODE = print_set_mode();
 
   if (MODE == TEST_MODE) test_mode();
   if (MODE == MAINT_MODE) maint_mode();
@@ -193,6 +188,50 @@ void loop() {
 }
 
 void test_mode() {
+  Serial.println("Iniciando pruebas del modo test");
+  Serial.println("Prueba de ping");
+  long test_started_time = millis();
+  long time_running = 0;
+  while (time_running <= 10 * 1000){
+    long start_time = millis();
+    make_request("/ping");
+    long end_time = millis();
+    Serial.print("Ping: ");
+    Serial.print(end_time - start_time);
+    Serial.println("ms");
+    lcd.setCursor(0, 1);
+    lcd.print("                ");
+    lcd.setCursor(0, 1);
+    lcd.print("Ping: ");
+    lcd.print(end_time - start_time);
+    lcd.print("ms");
+    time_running = millis() - test_started_time;
+  }
+  int turnNo;
+
+  lcd.setCursor(0, 1);
+  lcd.print("                ");
+  lcd.setCursor(0, 1);
+
+  Serial.println("Prueba de motor eje X");
+  for (turnNo = 0; turnNo < SHAFT_MOTOR_STEPS_RATIO; turnNo++) {
+    move_from_command(KEY_RIGHT);
+  }
+
+  for (turnNo = 0; turnNo < SHAFT_MOTOR_STEPS_RATIO; turnNo++) {
+    move_from_command(KEY_LEFT);
+  }
+
+  Serial.println("Prueba de motor eje Y");
+  for (turnNo = 0; turnNo < SHAFT_MOTOR_STEPS_RATIO; turnNo++) {
+    move_from_command(KEY_UP);
+  }
+
+  for (turnNo = 0; turnNo < SHAFT_MOTOR_STEPS_RATIO; turnNo++) {
+    move_from_command(KEY_DOWN);
+  }
+
+  Serial.println("Fin pruebas del motor");
 }
 
 void maint_mode() {
@@ -201,7 +240,8 @@ void maint_mode() {
 }
 
 void normal_mode() {
-  make_request();
+  char key = get_char_code_from(make_request("/hola"));
+  move_from_command(key);
 }
 
 String get_str_code_from(char key) {
@@ -246,8 +286,7 @@ int print_set_mode() {
 
   Serial.print("Modo Seteado");
   lcd.clear();
-  lcd.print("Modo Seteado");
-  lcd.setCursor(0, 1);
+  lcd.setCursor(0, 0);
 
   if (key == '#') {
     lcd.print("Test");
@@ -329,38 +368,43 @@ void move_motor() {
 }
 
 
-void make_request() {
-  if (client.available()) {
-    while(client.available()){
-      char c = client.read();
-      nextIsResponse = nextIsResponse || c == '@';
-      if(nextIsResponse){
-        response += c;
+String make_request(String endpoint) {
+
+  boolean nextIsResponse = false;
+  String response = "";
+
+  while (true) {
+
+    long elapsed_time = millis() - time;
+
+    if (elapsed_time >= 1 * 1000) {
+      time = millis();
+      while(!client.connected()) {
+        if (client.connect(server, PORT)) {
+          Serial.println("Request starting");
+          client.println("GET " + endpoint + " HTTP/1.1");
+          client.println("Host: " + String(SERVER[0]) + "." + String(SERVER[1]) + "."  + String(SERVER[2]) + "." + String(SERVER[3]));
+          client.println("Connection:close");
+          client.println();
+        } else{
+          Serial.println("Error making the request");
+        }
       }
+
+      while(!client.available()){}
+
+      while(client.available()){
+        char c = client.read();
+        nextIsResponse = nextIsResponse || c == '@';
+        if(nextIsResponse){
+          response += c;
+        }
+      }
+      client.stop();
+
+      return response;
     }
-
-    char key = get_char_code_from(response);
-
-    move_from_command(key);
-    response = "";
-    client.stop();
-    nextIsResponse = false;
   }
 
-  long elapsed_time = millis() - time;
-  if (elapsed_time >= 0 * 1000) {
-    time = millis();
-    if(!client.connected()){
-      if (client.connect(server, PORT)) {
-        Serial.println("Request starting");
-        client.println("GET /hola HTTP/1.1");
-        client.println("Host: " + String(SERVER[0]) + "." + String(SERVER[1]) + "."  + String(SERVER[2]) + "." + String(SERVER[3]));
-        client.println("Connection:close");
-        client.println();
-      } else{
-        Serial.println("Error making the request");
-      }
-    }
-  }
 }
 
