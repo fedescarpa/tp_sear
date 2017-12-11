@@ -72,13 +72,13 @@ const char KEY_RIGHT = '4';
 // == LCD CONFIG
 // ==========================
 
-const int D4 = A5;
-const int D5 = A4;
-const int D6 = A3;
-const int D7 = A2;
+const int D4 = A13;
+const int D5 = A12;
+const int D6 = A11;
+const int D7 = A10;
 
-const int RS = A1;
-const int EN = A0;
+const int RS = A9;
+const int EN = A8;
 
 LiquidCrystal lcd(RS, EN, D4, D5, D6, D7);
 
@@ -123,6 +123,12 @@ String RESPONSE_RIGHT = "@right";
 
 long time = 0;
 
+const int TEST_MODE = 1;
+const int MAINT_MODE = 2;
+const int NORMAL_MODE = 4;
+
+int MODE = 0;
+
 
 // ==========================
 // == SETUP
@@ -163,7 +169,7 @@ void setupLCD() {
 
 void setupEthernet() {
   Serial.println("Setup Ethernet");
-  Ethernet.begin(mac);
+  Ethernet.begin(mac, ip);
   Serial.println(Ethernet.localIP());
   delay(1000);
   Serial.println("Ethernet started");
@@ -176,14 +182,27 @@ void setupEthernet() {
 
 void loop() {
 
-  make_request();
+  if (MODE == 0) {
+    MODE = print_set_mode();
+  }
 
+  if (MODE == TEST_MODE) test_mode();
+  if (MODE == MAINT_MODE) maint_mode();
+  if (MODE == NORMAL_MODE) normal_mode();
+
+}
+
+void test_mode() {
   char key = keypad.getKey();
-
   print_in_lcd(key);
+  move_from_command(key);
+}
 
-  move_from_server(key);
+void maint_mode() {
+}
 
+void normal_mode() {
+  make_request();
 }
 
 String get_str_code_from(char key) {
@@ -220,6 +239,36 @@ void print_in_lcd(char key) {
 
 }
 
+int print_set_mode() {
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Ingrese modo");
+  Serial.println("Ingrese modo");
+  char key;
+  do {
+    key = keypad.getKey();
+  } while (key != '#' && key != '0' && key != '*');
+
+  Serial.print("Modo Seteado");
+  lcd.clear();
+  lcd.print("Modo Seteado");
+  lcd.setCursor(0, 1);
+
+  if (key == '#') {
+    lcd.print("Test");
+    return TEST_MODE;
+  }
+  if (key == '0') {
+    lcd.print("Maint");
+    return MAINT_MODE;
+  }
+  if (key == '*') {
+    lcd.print("Normal");
+    return NORMAL_MODE;
+  }
+}
+
 void lcd_print_if(char key, char expected, String message) {
   if (key == expected) {
     lcd.clear();
@@ -229,7 +278,7 @@ void lcd_print_if(char key, char expected, String message) {
   }
 }
 
-void move_from_server(char key) {
+void move_from_command(char key) {
 
   turnUp    = key == KEY_UP;
   turnDown  = key == KEY_DOWN;
@@ -301,17 +350,11 @@ void make_request() {
 
     char key = get_char_code_from(response);
 
-    move_from_server(key);
+    move_from_command(key);
     response = "";
     client.stop();
     nextIsResponse = false;
   }
-
-//  String data = "";
-//  data.concat("X=");
-//  data.concat(shaftPositionX);
-//  data.concat("&Y=");
-//  data.concat(shaftPositionY);
 
   long elapsed_time = millis() - time;
   if (elapsed_time >= 0 * 1000) {
@@ -320,20 +363,13 @@ void make_request() {
       if (client.connect(server, PORT)) {
         Serial.println("Request starting");
         client.println("GET /hola HTTP/1.1");
-        client.println("Host: " + String(SERVER[0])+ String(SERVER[1]) + String(SERVER[2]) + String(SERVER[3]));
+        client.println("Host: " + String(SERVER[0]) + "." + String(SERVER[1]) + "."  + String(SERVER[2]) + "." + String(SERVER[3]));
         client.println("Connection:close");
         client.println();
-//        client.println("POST /hola HTTP/1.1");
-//        client.println("Host: 192.168.3.98");
-//        client.println("Content-Type: application/x-www-form-urlencoded");
-//        client.println("Connection:close");
-//        client.print("Content-Length:");
-//        client.println(data.length());
-//        client.print(data);
-//        client.println();
       } else{
         Serial.println("Error making the request");
       }
     }
   }
 }
+
