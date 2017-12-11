@@ -193,12 +193,11 @@ void loop() {
 }
 
 void test_mode() {
-  char key = keypad.getKey();
-  print_in_lcd(key);
-  move_from_command(key);
 }
 
 void maint_mode() {
+  char key = keypad.getKey();
+  move_from_command(key);
 }
 
 void normal_mode() {
@@ -220,11 +219,6 @@ char get_char_code_from(String response) {
 }
 
 void print_in_lcd(char key) {
-
-  lcd_print_if(key, KEY_UP,    "UP");
-  lcd_print_if(key, KEY_DOWN,  "DOWN");
-  lcd_print_if(key, KEY_LEFT,  "LEFT");
-  lcd_print_if(key, KEY_RIGHT, "RIGHT");
 
   lcd.setCursor(8, 1);
   lcd.print(" X:");
@@ -287,6 +281,7 @@ void move_from_command(char key) {
 
   if (turnLeft || turnRight || turnDown || turnUp) {
     move_shaft();
+    print_in_lcd(key);
   }
 
 }
@@ -300,16 +295,12 @@ void move_shaft() {
     }
     if (turnRight) {
       shaftPositionX++;
-      Serial.println(shaftPositionX);
     } else if (turnLeft) {
       shaftPositionX--;
-      Serial.println(shaftPositionX);
     } else if (turnUp) {
       shaftPositionY++;
-      Serial.println(shaftPositionY);
     } else if (turnDown) {
       shaftPositionY--;
-      Serial.println(shaftPositionY);
     }
   }
 }
